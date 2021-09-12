@@ -33,6 +33,7 @@ function match(element, selector) {
             return true;
         }
     }
+    return false;
 }
 
 function specificity(selector) {
@@ -76,6 +77,8 @@ function computeCSS(element) {
             continue;
         }
 
+        let matched = false;
+
         var j = 1;
         for (let i = 0; i < elements.length; i++) {
             if (match(elements[i], selectorParts[j])) {
@@ -118,7 +121,7 @@ function emit(token) {
         element.tagName = token.tagName;
 
         for (let p in token) {
-            if (p != "type" || p != "tagName") {
+            if (p != "type" && p != "tagName") {
                 element.attributes.push({
                     name: p,
                     value: token[p]
@@ -126,7 +129,10 @@ function emit(token) {
             }
         }
 
+        computeCSS(element);
+
         top.children.push(element);
+        element.parent = top;
 
         if (!token.isSelfClosing) {
             stack.push(element);
@@ -137,6 +143,9 @@ function emit(token) {
         if (top.tagName != token.tagName) {
             throw new Error("Tag start end doesn't match!");
         } else {
+            if (top.tagName === "style") {
+                addCSSRules(top.children[0].content);
+            }
             stack.pop();
         }
         currentTextNode = null;
@@ -146,7 +155,7 @@ function emit(token) {
                 type: "text",
                 content: ""
             };
-            top.children, push(currentTextNode);
+            top.children.push(currentTextNode);
         }
         currentTextNode.content += token.content;
     }
@@ -194,7 +203,7 @@ function tagName(c) {
         return beforeAttributeName;
     } else if (c == "/") {
         return selfClosingStartTag;
-    } else if (c.match(/^[A-Z]$/)) {
+    } else if (c.match(/^[a-zA-Z]$/)) {
         currentToken.tagName += c; //.toLowerCase();
         return tagName;
     } else if (c == ">") {
@@ -226,7 +235,7 @@ function attributeName(c) {
     if (c.match(/^[\t\n\f ]$/) || c == "/" || c == ">" || c == EOF) {
         return afterAttributeName(c);
     } else if (c == "=") {
-        return beforeAttributeName;
+        return beforeAttributeValue;
     } else if (c == "\u0000") {
 
     } else if (c == "\"" || c == "'" || c == "<") {
@@ -239,7 +248,7 @@ function attributeName(c) {
 
 function beforeAttributeValue(c) {
     if (c.match(/^[\t\n\f ]$/) || c == "/" || c == ">" || c == EOF) {
-        return beforAttributeValue;
+        return beforeAttributeValue;
     } else if (c == "\"") {
         return doubleQuoteAttributeValue;
     } else if (c == "\'") {
